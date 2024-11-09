@@ -17,14 +17,16 @@ def packMessage(messageType, port_ip, json_data):
 	data_length = len(json_data)
 	portNumber = port_ip[1]
 	data = struct.pack('BH%ds'%data_length, messageType, portNumber, json_data.encode())
-	return data
+	attempts = 0
+	return (data, attempts)
 
 # Message sending thread that monitors a queue and sends any messages added to it
 def send_with_confirmation(mainSocket, subSocket, port_ip, message_queue, stop_event):
 	print("Send thread started")
+	MAX_ATTEMPTS = 3
 	while not stop_event.is_set():
 		try:
-			data = message_queue.get(timeout=0.1)  # Wait for a message
+			(data, attempts) = message_queue.get(timeout=0.1)  # Wait for a message
 			print(f"Sending message: {data}")
 			mainSocket.sendto(data, port_ip)
 
@@ -38,8 +40,9 @@ def send_with_confirmation(mainSocket, subSocket, port_ip, message_queue, stop_e
 					print("Confirmation received!")
 			else:
 				print("No confirmation received, will resend later.")
-				message_queue.put(data)  # Re-add message to the queue for later sending
-				#TODO add a max timeout/max attempts parameter to the message structure to track re-sending
+				attempts = attempts + 1
+				if attempts < MAX_ATTEMPTS:
+					message_queue.put((data, attempts))  # Re-add message to the queue for later sending
 
 		except queue.Empty:
 			continue  # Continue waiting for messages
@@ -48,8 +51,8 @@ def send_with_confirmation(mainSocket, subSocket, port_ip, message_queue, stop_e
 def message_receiver(port_ip, message_queue, stop_event):
 	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as mainSocket:
 		mainSocket.bind(port_ip) #keep the socket in blocking mode since using "select"
-		print("Binding mainSocket on 12346.")
-		print("Checking for data every 10 ms with select")
+		print("Binding mainSocket on %d."%port_ip[1])
+		print("Checking for data every 1 ms with select")
 		try:
 			#Initialize the sending socket for future stuff
 			sendSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -84,7 +87,7 @@ def parse_message(data):
 		print("Latency: %s"%delta)
 
 	elif messageType == MessageType.COORDINATES:
-		jsonData = json.loads(data[4:].decode())
-		
+		pass#Add your custom message types here
+
 	else:
 		print("Unsupported message type. %d"%messageType)
