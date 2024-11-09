@@ -1,1 +1,2 @@
-# UDP Socket Example
+# UDP Socket example
+The following example is meant for low latency server-client communication between programs on a local machine. This was developed for a project needing multiple python "sub" programs working separately and communicating their results to a single "main" program. Latency between message sending and recieving is effectively limited only by the buffer delay specified in the "select.select" function call in the message receiving thread. This has been tested and shown consistent latency between 0-0.1 ms for a buffer delay of 0.1 ms. 
